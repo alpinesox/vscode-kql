@@ -26,6 +26,19 @@ npm test
 The repository includes pre-commit and CI checks for TruffleHog secret scanning
 and Semgrep static analysis.
 
+The local pre-commit setup expects project-local tools at `.venv` and `.tools`.
+Install them before enabling the hook:
+
+```sh
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install pre-commit semgrep
+```
+
+Download the TruffleHog Windows AMD64 release archive from the
+[TruffleHog releases page](https://github.com/trufflesecurity/trufflehog/releases)
+and extract `trufflehog.exe` to `.tools/bin/trufflehog.exe`.
+
 Install the local hooks with either option:
 
 ```sh

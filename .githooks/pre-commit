@@ -1,22 +1,30 @@
 #!/bin/sh
 set -eu
 
+if [ -x ./.venv/Scripts/pre-commit.exe ]; then
+  ./.venv/Scripts/pre-commit.exe run --all-files
+  exit 0
+fi
+
 if command -v pre-commit >/dev/null 2>&1; then
   pre-commit run --all-files
   exit 0
 fi
 
-if ! command -v trufflehog >/dev/null 2>&1; then
+TRUFFLEHOG=${TRUFFLEHOG:-./.tools/bin/trufflehog.exe}
+SEMGREP=${SEMGREP:-./.venv/Scripts/semgrep.exe}
+
+if [ ! -x "$TRUFFLEHOG" ]; then
   echo "trufflehog is required for the pre-commit secret scan." >&2
-  echo "Install trufflehog or install pre-commit and run: pre-commit install --hook-type pre-commit" >&2
+  echo "Expected local binary: $TRUFFLEHOG" >&2
   exit 1
 fi
 
-if ! command -v semgrep >/dev/null 2>&1; then
+if [ ! -x "$SEMGREP" ]; then
   echo "semgrep is required for the pre-commit static analysis scan." >&2
-  echo "Install semgrep or install pre-commit and run: pre-commit install --hook-type pre-commit" >&2
+  echo "Expected local binary: $SEMGREP" >&2
   exit 1
 fi
 
-trufflehog git file://. --fail --only-verified
-semgrep scan --config auto --error
+"$TRUFFLEHOG" git file://. --fail --no-update --results=verified
+"$SEMGREP" scan --config auto --error

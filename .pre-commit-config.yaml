@@ -3,11 +3,11 @@ repos:
     hooks:
       - id: trufflehog-verified
         name: trufflehog verified secret scan
-        entry: trufflehog git file://. --fail --only-verified
+        entry: ./.tools/bin/trufflehog.exe git file://. --fail --no-update --results=verified
         language: system
         pass_filenames: false
       - id: semgrep-auto
         name: semgrep static analysis
-        entry: semgrep scan --config auto --error
+        entry: ./.venv/Scripts/semgrep.exe scan --config auto --error
         language: system
         pass_filenames: false
