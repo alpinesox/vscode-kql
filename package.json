@@ -61,8 +61,8 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "security:sast": ".venv\\Scripts\\semgrep.exe scan --config auto --error",
-    "security:secrets": ".tools\\bin\\trufflehog.exe git file://. --fail --no-update --results=verified",
+    "security:sast": "semgrep scan --config auto --error",
+    "security:secrets": "trufflehog git file://. --fail --no-update --results=verified",
     "security": "npm run security:secrets && npm run security:sast",
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
