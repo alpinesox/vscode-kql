@@ -67,4 +67,4 @@ jobs:
           chmod +x "$RUNNER_TEMP/trufflehog/trufflehog"
 
       - name: Run TruffleHog
-        run: "$RUNNER_TEMP/trufflehog/trufflehog" filesystem . --fail --no-update --results=verified
+        run: $RUNNER_TEMP/trufflehog/trufflehog filesystem . --fail --no-update --results=verified
