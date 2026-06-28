@@ -8,15 +8,28 @@ import {
   parseKql
 } from "./kql";
 
-const KQL_SELECTOR: vscode.DocumentSelector = { language: "kql", scheme: "file" };
+const KQL_SELECTOR: vscode.DocumentSelector = { language: "kql" };
+const DIAGNOSTIC_DEBOUNCE_MS = 250;
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection("kql");
+  const diagnosticTimers = new Map<string, ReturnType<typeof setTimeout>>();
   context.subscriptions.push(diagnostics);
 
   const refreshDiagnostics = (document: vscode.TextDocument): void => {
     if (document.languageId !== "kql") return;
     diagnostics.set(document.uri, toVscodeDiagnostics(document));
+  };
+
+  const scheduleDiagnostics = (document: vscode.TextDocument): void => {
+    if (document.languageId !== "kql") return;
+    const key = document.uri.toString();
+    const existing = diagnosticTimers.get(key);
+    if (existing) clearTimeout(existing);
+    diagnosticTimers.set(key, setTimeout(() => {
+      diagnosticTimers.delete(key);
+      refreshDiagnostics(document);
+    }, DIAGNOSTIC_DEBOUNCE_MS));
   };
 
   context.subscriptions.push(
@@ -37,8 +50,14 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.workspace.onDidOpenTextDocument(refreshDiagnostics),
-    vscode.workspace.onDidChangeTextDocument((event) => refreshDiagnostics(event.document)),
-    vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri))
+    vscode.workspace.onDidChangeTextDocument((event) => scheduleDiagnostics(event.document)),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      const key = document.uri.toString();
+      const existing = diagnosticTimers.get(key);
+      if (existing) clearTimeout(existing);
+      diagnosticTimers.delete(key);
+      diagnostics.delete(document.uri);
+    })
   );
 
   for (const document of vscode.workspace.textDocuments) refreshDiagnostics(document);
@@ -48,7 +67,7 @@ export function deactivate(): void {}
 
 function completion(value: string, kind: vscode.CompletionItemKind): vscode.CompletionItem {
   const item = new vscode.CompletionItem(value, kind);
-  item.insertText = value;
+  item.insertText = kind === vscode.CompletionItemKind.Function ? new vscode.SnippetString(value.replace(/\(\)$/, "($0)")) : value;
   return item;
 }
 

@@ -30,7 +30,7 @@
     },
     "keywords": {
       "patterns": [
-        { "name": "keyword.control.kql", "match": "(?i)\\b(?:as|asc|between|by|contains|declare|desc|distinct|extend|externaldata|facet|find|fork|getschema|has|in|invoke|join|kind|let|limit|lookup|make-series|materialize|mv-apply|mv-expand|not|on|or|order|parse|print|project|project-away|project-keep|project-rename|range|reduce|render|sample|search|serialize|sort|summarize|take|top|union|where)\\b" }
+        { "name": "keyword.control.kql", "match": "(?i)\\b(?:as|asc|between|by|contains|count|declare|desc|distinct|evaluate|extend|externaldata|facet|find|fork|getschema|has|in|invoke|join|kind|let|limit|lookup|make-series|materialize|mv-apply|mv-expand|not|on|or|order|parse|print|project|project-away|project-keep|project-rename|range|reduce|render|sample|search|serialize|sort|summarize|take|top|union|where)\\b" }
       ]
     },
     "operators": {

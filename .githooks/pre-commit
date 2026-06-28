@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+if command -v pre-commit >/dev/null 2>&1; then
+  pre-commit run --all-files
+  exit 0
+fi
+
+if ! command -v trufflehog >/dev/null 2>&1; then
+  echo "trufflehog is required for the pre-commit secret scan." >&2
+  echo "Install trufflehog or install pre-commit and run: pre-commit install --hook-type pre-commit" >&2
+  exit 1
+fi
+
+if ! command -v semgrep >/dev/null 2>&1; then
+  echo "semgrep is required for the pre-commit static analysis scan." >&2
+  echo "Install semgrep or install pre-commit and run: pre-commit install --hook-type pre-commit" >&2
+  exit 1
+fi
+
+trufflehog git file://. --fail --only-verified
+semgrep scan --config auto --error

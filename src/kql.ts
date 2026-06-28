@@ -31,6 +31,7 @@ export interface ParseResult {
 }
 
 const MAX_QUERY_LENGTH = 1_048_576;
+const MAX_DIAGNOSTICS = 200;
 
 const KEYWORDS = new Set([
   "AND",
@@ -44,6 +45,7 @@ const KEYWORDS = new Set([
   "DISTINCT",
   "EXTEND",
   "EXTERNALDATA",
+  "EVALUATE",
   "FACET",
   "FALSE",
   "FIND",
@@ -288,12 +290,19 @@ export function tokenize(input: string): Token[] {
  * @returns Tokens and lint diagnostics.
  */
 export function parseKql(input: string): ParseResult {
-  const tokens = tokenize(input);
   const diagnostics: KqlDiagnostic[] = [];
 
   if (input.length > MAX_QUERY_LENGTH) {
-    diagnostics.push({ message: "KQL query text is unusually large for offline analysis.", start: MAX_QUERY_LENGTH, end: input.length, severity: "warning" });
+    addDiagnostic(diagnostics, {
+      message: "KQL query text is too large for offline diagnostics.",
+      start: MAX_QUERY_LENGTH,
+      end: Math.min(input.length, MAX_QUERY_LENGTH + 1),
+      severity: "warning"
+    });
+    return { tokens: [], diagnostics };
   }
+
+  const tokens = tokenize(input);
 
   validateUnterminatedTokens(tokens, diagnostics);
   validateDelimiters(tokens, diagnostics);
@@ -311,6 +320,8 @@ export function parseKql(input: string): ParseResult {
  * @returns Formatted KQL text ending with a newline when non-empty.
  */
 export function formatKql(input: string): string {
+  if (input.length > MAX_QUERY_LENGTH) return input;
+
   const tokens = tokenize(input);
   if (tokens.length === 0) return input.trim();
   if (tokens.some((token) => token.kind === "comment")) return `${input.trimEnd()}\n`;
@@ -327,14 +338,15 @@ function longestOperatorAt(input: string, start: number): string | undefined {
 
 function validateUnterminatedTokens(tokens: Token[], diagnostics: KqlDiagnostic[]): void {
   for (const token of tokens) {
+    if (diagnostics.length >= MAX_DIAGNOSTICS) return;
     if (token.kind === "string") {
       const first = token.value[0];
       if (!first || token.value.length === 1 || token.value[token.value.length - 1] !== first) {
-        diagnostics.push({ message: "Unterminated string literal.", start: token.start, end: token.end, severity: "error" });
+        addDiagnostic(diagnostics, { message: "Unterminated string literal.", start: token.start, end: token.end, severity: "error" });
       }
     }
     if (token.kind === "comment" && token.value.startsWith("/*") && !token.value.endsWith("*/")) {
-      diagnostics.push({ message: "Unterminated block comment.", start: token.start, end: token.end, severity: "error" });
+      addDiagnostic(diagnostics, { message: "Unterminated block comment.", start: token.start, end: token.end, severity: "error" });
     }
   }
 }
@@ -343,33 +355,39 @@ function validateDelimiters(tokens: Token[], diagnostics: KqlDiagnostic[]): void
   const stack: Token[] = [];
   const pairs = new Map([[")", "("], ["]", "["], ["}", "{"]]);
   for (const token of tokens) {
+    if (diagnostics.length >= MAX_DIAGNOSTICS) return;
     if (token.kind === "comment" || token.kind === "string") continue;
     if (["(", "[", "{"].includes(token.value)) stack.push(token);
     if ([")", "]", "}"].includes(token.value)) {
       const expected = pairs.get(token.value);
       const open = stack.pop();
       if (!open || open.value !== expected) {
-        diagnostics.push({ message: `Unmatched closing ${delimiterName(token.value)}.`, start: token.start, end: token.end, severity: "error" });
+        addDiagnostic(diagnostics, { message: `Unmatched closing ${delimiterName(token.value)}.`, start: token.start, end: token.end, severity: "error" });
       }
     }
   }
   for (const open of stack) {
-    diagnostics.push({ message: `Unmatched opening ${delimiterName(open.value)}.`, start: open.start, end: open.end, severity: "error" });
+    if (diagnostics.length >= MAX_DIAGNOSTICS) return;
+    addDiagnostic(diagnostics, { message: `Unmatched opening ${delimiterName(open.value)}.`, start: open.start, end: open.end, severity: "error" });
   }
 }
 
 function validatePipeOperators(tokens: Token[], diagnostics: KqlDiagnostic[]): void {
+  let depth = 0;
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index];
-    if (!token || token.value !== "|") continue;
+    if (!token) continue;
+    if (["(", "[", "{"].includes(token.value)) depth++;
+    if ([")", "]", "}"].includes(token.value)) depth = Math.max(0, depth - 1);
+    if (token.value !== "|" || depth !== 0) continue;
     const next = nextSignificant(tokens, index + 1);
     if (!next) {
-      diagnostics.push({ message: "Pipe operator should be followed by a KQL tabular operator.", start: token.start, end: token.end, severity: "error" });
+      addDiagnostic(diagnostics, { message: "Pipe operator should be followed by a KQL tabular operator.", start: token.start, end: token.end, severity: "error" });
       continue;
     }
     if (next.kind !== "keyword" && next.kind !== "identifier") continue;
     if (!PIPE_OPERATORS.has(next.value.toUpperCase())) {
-      diagnostics.push({ message: `Unknown or uncommon pipe operator '${next.value}'.`, start: next.start, end: next.end, severity: "warning" });
+      addDiagnostic(diagnostics, { message: `Unknown or uncommon pipe operator '${next.value}'.`, start: next.start, end: next.end, severity: "warning" });
     }
   }
 }
@@ -379,25 +397,32 @@ function validateLetStatements(tokens: Token[], diagnostics: KqlDiagnostic[]): v
     const token = tokens[index];
     if (token?.kind !== "keyword" || token.value !== "LET") continue;
     let cursor = index + 1;
+    let depth = 0;
     let foundEquals = false;
     let foundTerminator = false;
     while (cursor < tokens.length) {
       const current = tokens[cursor];
       if (!current) break;
+      if (["(", "[", "{"].includes(current.value)) depth++;
+      if ([")", "]", "}"].includes(current.value)) depth = Math.max(0, depth - 1);
       if (current.value === "=") foundEquals = true;
-      if (current.value === ";") {
+      if (current.value === ";" && depth === 0) {
         foundTerminator = true;
         break;
       }
-      if (current.value === "|" && !foundTerminator) break;
+      if (current.value === "|" && depth === 0 && !foundTerminator) break;
       cursor++;
     }
     if (!foundEquals) {
-      diagnostics.push({ message: "LET statement should assign a name with '='.", start: token.start, end: token.end, severity: "warning" });
+      addDiagnostic(diagnostics, { message: "LET statement should assign a name with '='.", start: token.start, end: token.end, severity: "warning" });
     } else if (!foundTerminator) {
-      diagnostics.push({ message: "LET statement should end with a semicolon before the query body.", start: token.start, end: token.end, severity: "warning" });
+      addDiagnostic(diagnostics, { message: "LET statement should end with a semicolon before the query body.", start: token.start, end: token.end, severity: "warning" });
     }
   }
+}
+
+function addDiagnostic(diagnostics: KqlDiagnostic[], diagnostic: KqlDiagnostic): void {
+  if (diagnostics.length < MAX_DIAGNOSTICS) diagnostics.push(diagnostic);
 }
 
 function nextSignificant(tokens: Token[], start: number): Token | undefined {
@@ -417,9 +442,12 @@ function delimiterName(value: string): string {
 function splitStatements(tokens: Token[]): Token[][] {
   const statements: Token[][] = [];
   let current: Token[] = [];
+  let depth = 0;
   for (const token of tokens) {
     current.push(token);
-    if (token.value === ";") {
+    if (["(", "[", "{"].includes(token.value)) depth++;
+    if ([")", "]", "}"].includes(token.value)) depth = Math.max(0, depth - 1);
+    if (token.value === ";" && depth === 0) {
       statements.push(current);
       current = [];
     }
@@ -431,8 +459,11 @@ function splitStatements(tokens: Token[]): Token[][] {
 function formatStatement(tokens: Token[]): string {
   const segments: Token[][] = [];
   let current: Token[] = [];
+  let depth = 0;
   for (const token of tokens) {
-    if (token.value === "|") {
+    if (["(", "[", "{"].includes(token.value)) depth++;
+    if ([")", "]", "}"].includes(token.value)) depth = Math.max(0, depth - 1);
+    if (token.value === "|" && depth === 0) {
       if (current.length > 0) segments.push(current);
       current = [token];
     } else {
@@ -474,19 +505,36 @@ function splitTopLevelLogical(tokens: Token[]): Token[][] {
 
 function tokensToText(tokens: Token[]): string {
   let output = "";
+  let previous: Token | undefined;
+  let beforePrevious: Token | undefined;
+  let depth = 0;
   for (const token of tokens) {
+    const currentDepth = depth;
     if (token.value === ";") output = `${output.trimEnd()};`;
     else if (token.value === ",") output = `${output.trimEnd()}, `;
     else if ([")", "]", "}"].includes(token.value)) output = `${output.trimEnd()}${token.value}`;
     else if (["(", "[", "{"].includes(token.value)) output = `${output.trimEnd()}${token.value}`;
     else if (token.value === ".") output = `${output.trimEnd()}.`;
-    else if (token.value === "|") output = "| ";
+    else if (token.value === "|" && currentDepth === 0) output = "| ";
+    else if (token.value === "|") output = `${output.trimEnd()} | `;
+    else if ((token.value === "-" || token.value === "+") && isUnaryOperator(previous)) output = `${output.trimEnd()}${token.value}`;
     else if (token.kind === "operator") output = `${output.trimEnd()} ${token.value} `;
-    else output += `${needsSpace(output) ? " " : ""}${token.value}`;
+    else output += `${needsSpace(output, previous, beforePrevious) ? " " : ""}${token.value}`;
+    if (["(", "[", "{"].includes(token.value)) depth++;
+    if ([")", "]", "}"].includes(token.value)) depth = Math.max(0, depth - 1);
+    beforePrevious = previous;
+    previous = token;
   }
   return output.replace(/\s+/g, " ").replace(/\s+,/g, ",").trim();
 }
 
-function needsSpace(output: string): boolean {
+function isUnaryOperator(previous: Token | undefined): boolean {
+  if (!previous) return true;
+  if (["(", "[", "{", ",", ":", "=", "==", "!=", "<=", ">=", "<", ">", "=~", "!~"].includes(previous.value)) return true;
+  return previous.kind === "operator" && previous.value !== ")";
+}
+
+function needsSpace(output: string, previous: Token | undefined, beforePrevious: Token | undefined): boolean {
+  if (previous && (previous.value === "-" || previous.value === "+") && isUnaryOperator(beforePrevious)) return false;
   return output.length > 0 && !/[\s([{.]$/.test(output);
 }

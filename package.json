@@ -9,6 +9,14 @@
     "type": "git",
     "url": "https://github.com/alpinesox/vscode-kql.git"
   },
+  "files": [
+    "out/**/*.js",
+    "syntaxes/**",
+    "language-configuration.json",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -47,13 +55,15 @@
     "configurationDefaults": {
       "[kql]": {
         "editor.insertSpaces": true,
-        "editor.tabSize": 4,
-        "editor.formatOnSave": true
+        "editor.tabSize": 4
       }
     }
   },
   "scripts": {
     "compile": "tsc -p ./",
+    "security:sast": "semgrep scan --config auto --error",
+    "security:secrets": "trufflehog git file://. --fail --only-verified",
+    "security": "npm run security:secrets && npm run security:sast",
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "vscode:prepublish": "npm run compile"

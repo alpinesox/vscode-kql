@@ -10,6 +10,8 @@ Offline language support for Kusto Query Language (`.kql` and `.csl`) files.
 - Completion suggestions for common KQL keywords, functions, operators, scalar types, and pipe operators.
 
 This extension intentionally provides offline language features only and does not connect to Azure Data Explorer.
+Formatting is conservative for files that contain comments and for files larger
+than the offline diagnostics limit.
 
 ## Development
 
@@ -17,6 +19,29 @@ This extension intentionally provides offline language features only and does no
 npm ci
 npm run compile
 npm test
+```
+
+## Security checks
+
+The repository includes pre-commit and CI checks for TruffleHog secret scanning
+and Semgrep static analysis.
+
+Install the local hooks with either option:
+
+```sh
+pre-commit install --hook-type pre-commit
+```
+
+or:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+Run the same scans manually:
+
+```sh
+npm run security
 ```
 
 This artifact was produced with AI assistance and should be reviewed by a

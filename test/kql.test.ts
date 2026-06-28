@@ -14,6 +14,12 @@ describe("KQL language core", () => {
     );
   });
 
+  it("formats nested pipelines and unary operators without top-level splitting", () => {
+    expect(formatKql("let c=toscalar(StormEvents|count);StormEvents|where Duration > ago(-1d)|take c")).toBe(
+      "LET c = toscalar(StormEvents | count);\nStormEvents\n| WHERE Duration > ago(-1d)\n| TAKE c\n"
+    );
+  });
+
   it("keeps let statements and query body on separate formatted lines", () => {
     expect(formatKql("let threshold=10;StormEvents|take threshold")).toBe("LET threshold = 10;\nStormEvents\n| TAKE threshold\n");
   });
@@ -31,6 +37,20 @@ describe("KQL language core", () => {
   it("reports uncommon pipe operators", () => {
     const result = parseKql("StormEvents | wherex State == 'TEXAS'");
     expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toContain("Unknown or uncommon pipe operator 'wherex'.");
+  });
+
+  it("does not report nested pipe operators inside let expressions", () => {
+    const result = parseKql("let c = toscalar(StormEvents | count); StormEvents | take c");
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("caps diagnostics and skips tokenization for oversized documents", () => {
+    const capped = parseKql("(".repeat(500));
+    expect(capped.diagnostics).toHaveLength(200);
+
+    const oversized = parseKql("StormEvents\n".repeat(110_000));
+    expect(oversized.tokens).toEqual([]);
+    expect(oversized.diagnostics.map((diagnostic) => diagnostic.message)).toContain("KQL query text is too large for offline diagnostics.");
   });
 
   it("reports let statements without semicolons", () => {
