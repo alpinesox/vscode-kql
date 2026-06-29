@@ -45,7 +45,7 @@ jobs:
         run: npm run package:vsix
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: vscode-kql-vsix
           path: vscode-kql.vsix
