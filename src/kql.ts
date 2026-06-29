@@ -314,7 +314,7 @@ export function parseKql(input: string): ParseResult {
 
 /**
  * Formats common pipe-oriented KQL. Documents containing comments are returned
- * with only trailing whitespace normalized so formatting never removes comments.
+ * unchanged so formatting never moves or removes comments.
  *
  * @param input - KQL source text.
  * @returns Formatted KQL text ending with a newline when non-empty.
@@ -324,7 +324,7 @@ export function formatKql(input: string): string {
 
   const tokens = tokenize(input);
   if (tokens.length === 0) return input.trim();
-  if (tokens.some((token) => token.kind === "comment")) return `${input.trimEnd()}\n`;
+  if (tokens.some((token) => token.kind === "comment")) return input;
 
   const statements = splitStatements(tokens);
   const formatted = statements.map(formatStatement).filter(Boolean).join("\n");
@@ -332,7 +332,7 @@ export function formatKql(input: string): string {
 }
 
 function longestOperatorAt(input: string, start: number): string | undefined {
-  const operators = ["!contains", "!has", "!startswith", "!endswith", "!in~", "==", "!=", "<=", ">=", "=~", "!~", "in~", "!in", "=>", "|", "=", "<", ">", "+", "-", "*", "/", "%"];
+  const operators = ["!contains", "!has", "!startswith", "!endswith", "!in~", "==", "!=", "<=", ">=", "=~", "!~", "in~", "!in", "=>", "..", "|", "=", "<", ">", "+", "-", "*", "/", "%"];
   return operators.find((operator) => input.startsWith(operator, start));
 }
 
@@ -513,7 +513,7 @@ function tokensToText(tokens: Token[]): string {
     if (token.value === ";") output = `${output.trimEnd()};`;
     else if (token.value === ",") output = `${output.trimEnd()}, `;
     else if ([")", "]", "}"].includes(token.value)) output = `${output.trimEnd()}${token.value}`;
-    else if (["(", "[", "{"].includes(token.value)) output = `${output.trimEnd()}${token.value}`;
+    else if (["(", "[", "{"].includes(token.value)) output = previous?.value === "BETWEEN" ? `${output.trimEnd()} ${token.value}` : `${output.trimEnd()}${token.value}`;
     else if (token.value === ".") output = `${output.trimEnd()}.`;
     else if (token.value === "|" && currentDepth === 0) output = "| ";
     else if (token.value === "|") output = `${output.trimEnd()} | `;

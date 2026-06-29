@@ -9,14 +9,6 @@
     "type": "git",
     "url": "https://github.com/alpinesox/vscode-kql.git"
   },
-  "files": [
-    "out/**/*.js",
-    "syntaxes/**",
-    "language-configuration.json",
-    "README.md",
-    "LICENSE",
-    "package.json"
-  ],
   "engines": {
     "vscode": "^1.92.0"
   },
@@ -28,7 +20,7 @@
   "activationEvents": [
     "onLanguage:kql"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "languages": [
       {
@@ -60,7 +52,10 @@
     }
   },
   "scripts": {
+    "check:main": "node -e \"const fs=require('fs'); const pkg=require('./package.json'); if (!fs.existsSync(pkg.main)) { console.error(pkg.main + ' does not exist'); process.exit(1); }\"",
     "compile": "tsc -p ./",
+    "list:vsix": "vsce ls --tree",
+    "package:vsix": "vsce package --out vscode-kql.vsix",
     "security:sast": "semgrep scan --config auto --error",
     "security:secrets": "trufflehog git file://. --fail --no-update --results=verified",
     "security": "npm run security:secrets && npm run security:sast",
@@ -71,6 +66,7 @@
   "devDependencies": {
     "@types/node": "^22.13.14",
     "@types/vscode": "^1.92.0",
+    "@vscode/vsce": "^3.6.5",
     "typescript": "^5.8.2",
     "vitest": "^3.0.8"
   }

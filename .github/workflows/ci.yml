@@ -29,11 +29,27 @@ jobs:
       - name: Compile
         run: npm run compile
 
+      - name: Check extension entry point
+        run: npm run check:main
+
       - name: Test
         run: npm test
 
       - name: Audit dependencies
         run: npm audit
+
+      - name: Inspect VSIX contents
+        run: npm run list:vsix
+
+      - name: Package VSIX
+        run: npm run package:vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vscode-kql-vsix
+          path: vscode-kql.vsix
+          if-no-files-found: error
 
   semgrep:
     name: Semgrep
@@ -44,7 +60,7 @@ jobs:
 
       - name: Install Semgrep
         run: |
-          python -m pip install --user semgrep
+          python -m pip install --user semgrep==1.168.0
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run Semgrep

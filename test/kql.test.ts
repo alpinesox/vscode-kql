@@ -25,7 +25,13 @@ describe("KQL language core", () => {
   });
 
   it("does not remove comments when formatting", () => {
-    expect(formatKql("StormEvents | take 10 // keep this comment")).toBe("StormEvents | take 10 // keep this comment\n");
+    expect(formatKql("StormEvents | take 10 // keep this comment   ")).toBe("StormEvents | take 10 // keep this comment   ");
+  });
+
+  it("formats between ranges with conventional spacing", () => {
+    expect(formatKql("StormEvents | where Timestamp between (datetime(2024-01-01) .. datetime(2024-01-02))")).toBe(
+      "StormEvents\n| WHERE Timestamp BETWEEN (datetime(2024-01-01) .. datetime(2024-01-02))\n"
+    );
   });
 
   it("reports unmatched delimiters and unterminated strings", () => {
