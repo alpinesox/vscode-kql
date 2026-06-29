@@ -59,7 +59,3 @@ Run the same scans manually:
 ```sh
 npm run security
 ```
-
-This artifact was produced with AI assistance and should be reviewed by a
-qualified professional before use as compliance evidence, legal submission, or
-external distribution.
