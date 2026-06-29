@@ -6,8 +6,10 @@
 .venv/**
 .gitignore
 .npmignore
+.trufflehog-exclude
 .pre-commit-config.yaml
 node_modules/**
+scripts/**
 test/**
 src/**
 out/**/*.map

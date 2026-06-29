@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
           node-version: 22
           cache: npm
@@ -45,7 +45,7 @@ jobs:
         run: npm run package:vsix
 
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: vscode-kql-vsix
           path: vscode-kql.vsix
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Install Semgrep
         run: |
@@ -71,16 +71,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Install TruffleHog
         env:
           TRUFFLEHOG_VERSION: 3.95.6
+          TRUFFLEHOG_LINUX_AMD64_SHA256: 1b62ea3cbc672ed5fd36e0eebb00b1fb50bbb7ee35090f42437a5852a299e16b
         run: |
           mkdir -p "$RUNNER_TEMP/trufflehog"
           curl -sSfL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" -o "$RUNNER_TEMP/trufflehog/trufflehog.tar.gz"
+          echo "${TRUFFLEHOG_LINUX_AMD64_SHA256}  $RUNNER_TEMP/trufflehog/trufflehog.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/trufflehog/trufflehog.tar.gz" -C "$RUNNER_TEMP/trufflehog" trufflehog
           chmod +x "$RUNNER_TEMP/trufflehog/trufflehog"
 
       - name: Run TruffleHog
-        run: $RUNNER_TEMP/trufflehog/trufflehog filesystem . --fail --no-update --results=verified
+        run: $RUNNER_TEMP/trufflehog/trufflehog filesystem . --exclude-paths .trufflehog-exclude --fail --no-update --results=verified

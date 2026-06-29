@@ -6,20 +6,5 @@ if command -v pre-commit >/dev/null 2>&1; then
   exit 0
 fi
 
-TRUFFLEHOG=${TRUFFLEHOG:-trufflehog}
-SEMGREP=${SEMGREP:-semgrep}
-
-if ! command -v "$TRUFFLEHOG" >/dev/null 2>&1; then
-  echo "trufflehog is required for the pre-commit secret scan." >&2
-  echo "Install TruffleHog or set TRUFFLEHOG to the executable path." >&2
-  exit 1
-fi
-
-if ! command -v "$SEMGREP" >/dev/null 2>&1; then
-  echo "semgrep is required for the pre-commit static analysis scan." >&2
-  echo "Install Semgrep or set SEMGREP to the executable path." >&2
-  exit 1
-fi
-
-"$TRUFFLEHOG" git file://. --fail --no-update --results=verified
-"$SEMGREP" scan --config auto --error
+node scripts/security-secrets.js
+node scripts/security-sast.js

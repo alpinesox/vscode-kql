@@ -59,6 +59,15 @@ describe("KQL language core", () => {
     expect(oversized.diagnostics.map((diagnostic) => diagnostic.message)).toContain("KQL query text is too large for offline diagnostics.");
   });
 
+  it("caps token-heavy diagnostics before expensive validation", () => {
+    const startedAt = Date.now();
+    const result = parseKql("let a = 1 ".repeat(50_000));
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]?.message).toBe("KQL query has too many tokens for full offline diagnostics.");
+  });
+
   it("reports let statements without semicolons", () => {
     const result = parseKql("let threshold = 10 StormEvents | take threshold");
     expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toContain("LET statement should end with a semicolon before the query body.");

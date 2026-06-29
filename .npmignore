@@ -5,8 +5,10 @@
 .tmp/**
 .tools/**
 .venv/**
+.trufflehog-exclude
 .pre-commit-config.yaml
 node_modules/**
+scripts/**
 test/**
 src/**
 out/**/*.map

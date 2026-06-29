@@ -32,6 +32,7 @@ export interface ParseResult {
 
 const MAX_QUERY_LENGTH = 1_048_576;
 const MAX_DIAGNOSTICS = 200;
+const MAX_TOKENS_FOR_FULL_DIAGNOSTICS = 100_000;
 
 const KEYWORDS = new Set([
   "AND",
@@ -304,6 +305,16 @@ export function parseKql(input: string): ParseResult {
 
   const tokens = tokenize(input);
 
+  if (tokens.length > MAX_TOKENS_FOR_FULL_DIAGNOSTICS) {
+    addDiagnostic(diagnostics, {
+      message: "KQL query has too many tokens for full offline diagnostics.",
+      start: tokens[MAX_TOKENS_FOR_FULL_DIAGNOSTICS]?.start ?? input.length,
+      end: Math.min(input.length, (tokens[MAX_TOKENS_FOR_FULL_DIAGNOSTICS]?.end ?? input.length) + 1),
+      severity: "warning"
+    });
+    return { tokens, diagnostics };
+  }
+
   validateUnterminatedTokens(tokens, diagnostics);
   validateDelimiters(tokens, diagnostics);
   validatePipeOperators(tokens, diagnostics);
@@ -394,6 +405,7 @@ function validatePipeOperators(tokens: Token[], diagnostics: KqlDiagnostic[]): v
 
 function validateLetStatements(tokens: Token[], diagnostics: KqlDiagnostic[]): void {
   for (let index = 0; index < tokens.length; index++) {
+    if (diagnostics.length >= MAX_DIAGNOSTICS) return;
     const token = tokens[index];
     if (token?.kind !== "keyword" || token.value !== "LET") continue;
     let cursor = index + 1;
@@ -418,6 +430,8 @@ function validateLetStatements(tokens: Token[], diagnostics: KqlDiagnostic[]): v
     } else if (!foundTerminator) {
       addDiagnostic(diagnostics, { message: "LET statement should end with a semicolon before the query body.", start: token.start, end: token.end, severity: "warning" });
     }
+
+    index = cursor;
   }
 }
 
